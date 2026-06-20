@@ -483,6 +483,9 @@ void EncGOP::xProcessPictures( AccessUnitList& auList, PicList& doneList )
     {
       for( auto pic : m_rcUpdateList )
       {
+        if( pic->gopEntry->m_isRefOnly ) {
+          continue;
+        }
         if( pic != outPic )
         {
           pic->actualHeadBits  = outPic->actualHeadBits;
@@ -498,7 +501,8 @@ void EncGOP::xProcessPictures( AccessUnitList& auList, PicList& doneList )
       m_rcUpdateList.pop_front();
   }
 
-  const bool skipFirstPass = ( ! m_pcRateCtrl->rcIsFinalPass || m_isPreAnalysis ) && outPic->gopEntry->m_skipFirstPass;
+  const bool skipFirstPass = ( ( ! m_pcRateCtrl->rcIsFinalPass || m_isPreAnalysis ) && outPic->gopEntry->m_skipFirstPass )
+                         || outPic->gopEntry->m_isRefOnly;
   if( m_pcEncCfg->m_useAMaxBT && ! skipFirstPass )
   {
     m_BlkStat.updateMaxBT( *outPic->slices[0], outPic->picBlkStat );
@@ -591,6 +595,31 @@ void EncGOP::xEncodePicture( Picture* pic, EncPicture* picEncoder )
   if( ( ! m_pcRateCtrl->rcIsFinalPass || m_isPreAnalysis ) && pic->gopEntry->m_skipFirstPass )
   {
     pic->isReconstructed = true;
+    m_freePicEncoderList.push_back( picEncoder );
+    return;
+  }
+
+  if( pic->gopEntry->m_isRefOnly ) {
+    PelUnitBuf recoBuf = pic->getRecoBuf();
+    if( pic->getFilteredOrigBuffer().valid() ) {
+      recoBuf.copyFrom( pic->getRspOrigBuf() );
+    } else {
+      recoBuf.copyFrom( pic->getOrigBuf() );
+    }
+
+    pic->extendPicBorder();
+
+    if( pic->m_tileColsDone ) {
+      const int numTileCols = pic->cs->pps->numTileCols;
+      const bool syncLines  = m_pcEncCfg->m_ifpLines > 0;
+      const int doneValue   = numTileCols + ( syncLines ? 1 : 0 );
+      for( auto& entry : *pic->m_tileColsDone )
+        entry.store( doneValue, std::memory_order_release );
+    }
+
+    pic->isReconstructed = true;
+    pic->isNeededForOutput = false;
+
     m_freePicEncoderList.push_back( picEncoder );
     return;
   }
@@ -690,8 +719,15 @@ void EncGOP::xOutputRecYuv( const PicList& picList )
       {
         if( pic->poc != m_pocRecOut )
           continue;
-        if( ! pic->isReconstructed )
+        if( !pic->isReconstructed ) {
           return;
+        }
+        if( pic->gopEntry->m_isRefOnly ) {
+          m_pocRecOut += 1;
+          pic->isNeededForOutput = false;
+          bRun = true;
+          break;
+        }
 
         const PPS& pps = *(pic->cs->pps);
         vvencYUVBuffer yuvBuffer;
@@ -1533,9 +1569,11 @@ void EncGOP::xUpdateRcIfp()
       auto pic = *it;
       if( pic->isReconstructed )
       {
-        pic->actualTotalBits = pic->sliceDataStreams[0].getNumberOfWrittenBits();
+        if( !pic->gopEntry->m_isRefOnly ) {
+          pic->actualTotalBits = pic->sliceDataStreams[0].getNumberOfWrittenBits();
+          m_pcRateCtrl->updateAfterPicEncRC( pic );
+        }
         pic->refCounter--;
-        m_pcRateCtrl->updateAfterPicEncRC( pic );
         it = m_rcUpdateList.erase( it );
       }
       else
@@ -1693,18 +1731,20 @@ void EncGOP::xUpdateRateCap()
     auto pic = *it;
     if( pic->isReconstructed )
     {
-      const unsigned uibits = pic->sliceDataStreams[0].getNumberOfWrittenBits();
+      if( !pic->gopEntry->m_isRefOnly ) {
+        const unsigned uibits = pic->sliceDataStreams[0].getNumberOfWrittenBits();
 
-      if( !pic->gopEntry->m_isStartOfIntra && pic->gopEntry->m_scType == SCT_NONE )
-      {
-        xUpdateRateCapBits( pic, uibits );
-      }
-      else if( pic->gopEntry->m_isStartOfIntra && pic->gopEntry->m_gopNum == 0 && pic->poc < m_pcEncCfg->m_GOPSize && m_rcap.accumTargetBits * (uint32_t) m_pcEncCfg->m_GOPSize < uibits )
-      {
-        m_rcap.accumActualBits += uibits - m_rcap.accumTargetBits * (uint32_t) m_pcEncCfg->m_GOPSize; // capped CQF: compensate for overspending in first I-frame
-      }
+        if( !pic->gopEntry->m_isStartOfIntra && pic->gopEntry->m_scType == SCT_NONE )
+        {
+          xUpdateRateCapBits( pic, uibits );
+        }
+        else if( pic->gopEntry->m_isStartOfIntra && pic->gopEntry->m_gopNum == 0 && pic->poc < m_pcEncCfg->m_GOPSize && m_rcap.accumTargetBits * (uint32_t) m_pcEncCfg->m_GOPSize < uibits )
+        {
+          m_rcap.accumActualBits += uibits - m_rcap.accumTargetBits * (uint32_t) m_pcEncCfg->m_GOPSize; // capped CQF: compensate for overspending in first I-frame
+        }
 
-      it = m_rcUpdateList.erase( it );
+        it = m_rcUpdateList.erase( it );
+      }
     }
     else
     {
@@ -2449,6 +2489,11 @@ void EncGOP::xWritePicture( Picture& pic, AccessUnitList& au, bool isEncodeLtRef
         pic.picVA.spatAct[CH_L],
         pic.m_picShared->m_picMotEstError,
         pic.m_picShared->m_minNoiseLevels );
+    return;
+  }
+
+  if( pic.gopEntry->m_isRefOnly )
+  {
     return;
   }
 

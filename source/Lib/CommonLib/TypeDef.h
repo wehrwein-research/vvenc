@@ -886,6 +886,7 @@ typedef struct GOPEntry : vvencGOPEntry
   bool      m_isStartOfIntra;
   bool      m_isValid;
   bool      m_skipFirstPass;
+  bool      m_isRefOnly;
   SceneType m_scType;
   int       m_vtl;
 
@@ -902,6 +903,7 @@ typedef struct GOPEntry : vvencGOPEntry
     m_isStartOfIntra   = false;
     m_isValid          = false;
     m_skipFirstPass    = false;
+    m_isRefOnly        = false;
     m_scType           = SCT_NONE;
     m_vtl              = 0;
   }

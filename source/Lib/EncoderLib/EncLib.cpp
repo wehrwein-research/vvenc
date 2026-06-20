@@ -438,6 +438,7 @@ void EncLib::encodePicture( bool flush, const vvencYUVBuffer* yuvInBuf, AccessUn
     if( inputPending )
     {
       picShared = xGetFreePicShared();
+      picShared->m_gopEntry->m_isRefOnly = yuvInBuf->m_isExternalFrame;
       if( picShared )
       {
         picShared->reuse( m_picsRcvd, yuvInBuf );

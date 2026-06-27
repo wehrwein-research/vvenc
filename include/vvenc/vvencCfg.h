@@ -446,6 +446,7 @@ typedef struct vvenc_config {
   vvencSegmentMode
       m_SegmentMode; // segment position for segment concatenation (only needed,
                      // when multiple separate segments are used)
+  bool m_ExternalIFrame;
 
   bool m_usePerceptQPA; // usage of perceptually motivated input-adaptive QP
                         // modification, abbrev. perceptual QP adaptation (QPA).
@@ -1005,6 +1006,7 @@ VVENC_DECL bool vvenc_init_config_parameter(vvenc_config *cfg);
 #define VVENC_OPT_INTERNALBITDEPTH "internalbitdepth" // m_internalBitDepth
 #define VVENC_OPT_HDR "hdr"                           // m_HdrMode
 #define VVENC_OPT_SEGMENT "segment"                   // m_SegmentMode
+#define VVENC_OPT_EXTERNALIFRAME "externaliframe"     // m_ExternalIFrame
 
 /* vvenc_set_param (optional)
   This method sets one parameter by name.

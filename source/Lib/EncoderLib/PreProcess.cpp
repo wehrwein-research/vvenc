@@ -108,6 +108,7 @@ void PreProcess::processPictures( const PicList& picList, AccessUnitList& auList
 
     // set gop entry
     m_gopCfg.getNextGopEntry( pic->m_picShared->m_gopEntry );
+    pic->m_picShared->m_gopEntry.m_isRefOnly = pic->m_picShared->m_isExternal;
     CHECK( pic->m_picShared->m_gopEntry.m_POC != pic->poc, "invalid state" );
 
     if( ! pic->m_picShared->isLeadTrail() )

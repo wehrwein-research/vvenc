@@ -91,9 +91,10 @@ VVENC_DECL void vvenc_YUVBuffer_default(vvencYUVBuffer *yuvBuffer )
     yuvBuffer->planes[i].height  = 0;
     yuvBuffer->planes[i].stride  = 0;
   }
-  yuvBuffer->sequenceNumber  = 0;
-  yuvBuffer->cts             = 0;
-  yuvBuffer->ctsValid        = false;
+  yuvBuffer->sequenceNumber    = 0;
+  yuvBuffer->cts               = 0;
+  yuvBuffer->ctsValid          = false;
+  yuvBuffer->m_isExternalFrame = false;
 }
 
 

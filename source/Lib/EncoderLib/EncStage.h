@@ -62,6 +62,7 @@ class PicShared
 public:
   PicShared*       m_prevShared[ NUM_QPA_PREV_FRAMES ];
   GOPEntry         m_gopEntry;
+  bool             m_isExternal;
   PicVisAct        m_picVA;
   bool             m_isSccWeak;
   bool             m_isSccStrong;
@@ -105,6 +106,7 @@ public:
     std::fill_n( m_prevShared, NUM_QPA_PREV_FRAMES, nullptr );
     std::fill_n( m_minNoiseLevels, QPA_MAX_NOISE_LEVELS, 255u );
     m_gopEntry.setDefaultGOPEntry();
+    m_isExternal = false;
   };
 
   ~PicShared() {};
@@ -152,6 +154,7 @@ public:
     std::fill_n( m_prevShared, NUM_QPA_PREV_FRAMES, nullptr );
     std::fill_n( m_minNoiseLevels, QPA_MAX_NOISE_LEVELS, 255u );
     m_gopEntry.setDefaultGOPEntry();
+    m_isExternal     = yuvInBuf->m_isExternalFrame;
 #if VVENC_USE_UNSTABLE_API
     m_userData       = yuvInBuf->userData;
 #endif

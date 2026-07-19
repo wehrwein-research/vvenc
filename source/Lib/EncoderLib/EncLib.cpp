@@ -435,7 +435,7 @@ void EncLib::encodePicture( bool flush, const vvencYUVBuffer* yuvInBuf, AccessUn
   while( true )
   {
     // send new YUV input buffer to first encoder stage
-    if( inputPending )
+    if ( inputPending )
     {
       picShared = xGetFreePicShared();
       if( picShared )
@@ -450,6 +450,7 @@ void EncLib::encodePicture( bool flush, const vvencYUVBuffer* yuvInBuf, AccessUn
     PROFILER_EXT_UPDATE( g_timeProfiler, P_TOP_LEVEL, 0 );
 
     // trigger stages
+    const size_t auListSizeBefore = m_AuList.size();
     isQueueEmpty = m_picsRcvd > 0 || ( m_picsRcvd <= 0 && flush );
     for( auto encStage : m_encStages )
     {
@@ -468,8 +469,10 @@ void EncLib::encodePicture( bool flush, const vvencYUVBuffer* yuvInBuf, AccessUn
         m_accessUnitOutputStarted = !m_encCfg.m_stageParallelProc || m_AuList.size() > 4 || flush;
     }
 
-    // wait if input picture hasn't been stored yet or if encoding is running and no new output access unit has been encoded
-    bool waitAndStay = inputPending || ( m_rateCtrl->rcIsFinalPass && m_AuList.empty() && ! isQueueEmpty && ( m_accessUnitOutputStarted || flush ) );
+    const bool madeProgress = m_AuList.size() > auListSizeBefore;
+    bool waitAndStay = inputPending
+      || ( flush && m_rateCtrl->rcIsFinalPass && m_AuList.empty() && !isQueueEmpty )
+      || ( madeProgress && m_rateCtrl->rcIsFinalPass && m_AuList.empty() && !isQueueEmpty && ( m_accessUnitOutputStarted || flush ) );
     if( ! waitAndStay )
     {
       break;

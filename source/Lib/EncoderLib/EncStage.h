@@ -265,8 +265,9 @@ public:
     m_freeList.clear();
   }
 
-  bool isStageDone() const   { return m_procList.empty(); }
-  bool isNonBlocking() const { return m_isNonBlocking; }
+  bool isStageDone() const        { return m_procList.empty(); }
+  bool isNonBlocking() const      { return m_isNonBlocking; }
+  bool isWaitingForInput() const  { return !m_flush && (int)m_procList.size() < m_minQueueSize; }
 
   void initStage( const VVEncCfg& encCfg, int minQueueSize, int startPoc, bool processLeadTrail, bool sortByPoc, bool nonBlocking )
   {

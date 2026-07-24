@@ -430,6 +430,7 @@ VVENC_DECL vvenc_data *vvenc_data_default(int width, int height, int fps,
 
   vvenc_init_default(config, width, height, fps, bitrate, qp,
                      (vvencPresetMode)preset);
+  vvenc_init_preset(config, (vvencPresetMode)0);
 
   vvencEncoder *encoder = vvenc_encoder_create();
   vvenc_encoder_open(encoder, config);

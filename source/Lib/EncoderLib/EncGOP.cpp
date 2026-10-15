@@ -600,12 +600,12 @@ void EncGOP::xEncodePicture( Picture* pic, EncPicture* picEncoder )
   }
 
   if( pic->gopEntry->m_isRefOnly ) {
+    // The decoder injects the external picture as given, so the encoder must
+    // reference exactly that, never the MCTF-filtered copy. MCTF filters TId-0
+    // pictures, so an external I-frame would otherwise be predicted from a filtered
+    // reference the decoder never sees.
     PelUnitBuf recoBuf = pic->getRecoBuf();
-    if( pic->getFilteredOrigBuffer().valid() ) {
-      recoBuf.copyFrom( pic->getRspOrigBuf() );
-    } else {
-      recoBuf.copyFrom( pic->getOrigBuf() );
-    }
+    recoBuf.copyFrom( pic->getOrigBuf() );
 
     pic->extendPicBorder();
 
@@ -619,6 +619,19 @@ void EncGOP::xEncodePicture( Picture* pic, EncPicture* picEncoder )
 
     pic->isReconstructed = true;
     pic->isNeededForOutput = false;
+    // An external picture writes no APS, so pictures that take it as their ALF
+    // reference APS (any picture above it in temporal layer, e.g. the B-frames of
+    // the GOP an external I-frame starts) propagate nothing from it. They still
+    // wait in xProcessPictures for it to be initalized, which the normal finish
+    // path sets, so without this an external TId-0 picture deadlocks the encoder.
+    if( pic->picApsGlobal ) pic->picApsGlobal->initalized = true;
+    // Later pictures can take an external TId-0 picture as their TMVP collocated
+    // picture, which reads its motion field and per-CTU slices. Those were never
+    // written (the buffer may hold a previous picture's motion), so mark it all
+    // intra: no motion vectors to borrow, as for a coded I-frame.
+    pic->cs->slice = pic->slices[0];
+    std::fill( pic->ctuSlice.begin(), pic->ctuSlice.end(), pic->slices[0] );
+    pic->cs->getMotionBuf().fill( MotionInfo() );
 
     m_freePicEncoderList.push_back( picEncoder );
     return;
